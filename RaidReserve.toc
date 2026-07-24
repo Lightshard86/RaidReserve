@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: Raid Reserve
+## Notes: Allows raid leaders to reserve items and share the list with the raid.
+## Author: Phil
+## SavedVariables: RaidReserve_Data
+
+RaidReserve.lua
