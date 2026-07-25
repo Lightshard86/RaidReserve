@@ -1,26 +1,31 @@
-Addon adds a movable Button (shift leftclick)
+# :trophy: **RaidReserve v1.3**
 
-**Raidleader/assist:
+### :shield: **For Normal Raiders**
+*   **Request an Item**: Type `/rr [Shift-Click Item]` to send a request to the Lead.
+*   **Notifications**: Get instant chat alerts when your request is **Accepted** or **Denied**.
+*   **Live Updates**: Your list updates automatically as the Leader makes changes.
+*   **Loot Journal**: Track your personal luck! View total reserves vs. wins with a visual **Luck Gauge** and dynamic banter.
 
-You can push/update the List to all Raider via a Button
-You can Announce the Raid Reserve List to all Raider via Chat w/o needing them to use the Addon
+### :crown: **For Raid Leaders & Assistants**
+*   **Manage Requests**: Pending requests appear in **Yellow**.
+    *   `Left-Click`: **Accept** (Broadcasts to the whole raid).
+    *   `Right-Click`: **Deny** (Notifies the raider privately).
+*   **Smart Removal**: Right-click a green item to choose:
+    *   `Won`: Item dropped; updates the player's personal win stats.
+    *   `Lost`: Item didn't drop; counts as a "lost" reserve for stats.
+    *   `Remove Only`: Simply deletes the entry.
+*   **Legendary Upgrades**: Track items like **TF, Sulfuras, or Ashbringer** in a separate multi-select menu.
+*   **Announcements**: Custom recruitment messages + Target Channels (Say, Raid, Guild, or /1-/4).
 
-Add an item to the list with:
-(Works with shift leftklicking an Item, even from atlas loot)
+### :gear: **General Features**
+*   **User Tracker**: See exactly how many people have the addon in the top-right. (Hover for names!)
+*   **Modern UI**: Dark glass aesthetic with a **resizable** frame (drag the silver corner).
+*   **Minimap Icon**: Toggle the window or **Shift+Drag** to move the icon.
 
-/rr ItemLink playername
-/rr ItemLink (with no target, for yourself)
-/rr ItemLink (with a target, for the target)
-
-Remove an item:
-Simple right click an item in the List.
-
-Requested Item:
-Leftclick: Accept
-Rightclick: Deny
-
-
-
-**Raider:
-
-/rr Itemlink (Asking the Raidleader for a reserve, you get a msg if accepted or not)
+### :keyboard: **Slash Commands**
+```gherkin
+/rr           - Toggle Main Window
+/rr [Item]    - Request (Raider) or Add Target (Leader)
+/rr clear     - Wipe the current list (Leader Only)
+/rr clearstats - Reset your personal Loot Journal
+```
