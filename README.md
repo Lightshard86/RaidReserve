@@ -3,6 +3,7 @@ Addon adds a movable Button (shift leftclick)
 **Raidleader/assist:
 
 You can push/update the List to all Raider via a Button
+You can Announce the Raid Reserve List to all Raider via Chat w/o needing them to use the Addon
 
 Add an item to the list with:
 (Works with shift leftklicking an Item, even from atlas loot)
