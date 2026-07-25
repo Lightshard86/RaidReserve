@@ -189,10 +189,8 @@ frame:SetScript("OnEvent", function()
             UpdateUI()
             DEFAULT_CHAT_FRAME:AddMessage("|cffffff00RR Req:|r " .. realLink .. " from " .. sender)
         
-        -- UPDATED NOTIFICATION HANDLER
         elseif string.sub(msg, 1, 6) == "NOTIF:" then
             local payload = string.sub(msg, 7)
-            -- Use specific split on #!# to avoid link colons
             local s1 = string.find(payload, "#!#")
             if s1 then
                 local cmd = string.sub(payload, 1, s1 - 1)
@@ -231,7 +229,9 @@ SlashCmdList["RAIDRESERVE"] = function(msg)
     end
     if msg == "push" then PushListToRaid(); return end
 
-    local itemLink = string.match(msg, "|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r")
+    -- FIX: Changed string.match to string.find for Vanilla compatibility
+    local _, _, itemLink = string.find(msg, "(|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r)")
+    
     if itemLink then
         if IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0) then
             local remainder = string.gsub(msg, ".*|h|r%s*", "")
