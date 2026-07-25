@@ -48,13 +48,11 @@ local function CreateRow(id)
         if f.isRequest then
             local safeLink = string.gsub(f.link, "|", "*")
             if arg1 == "LeftButton" then
-                -- ACCEPTED
                 RaidReserve_Data.reserves[f.link] = f.player
                 requests[f.link] = nil
                 SendComm("NOTIF:ACC#!#" .. safeLink .. "#!#" .. f.player)
                 DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00Accepted:|r " .. f.link .. " for " .. f.player)
             else 
-                -- DENIED
                 SendComm("NOTIF:DNY#!#" .. safeLink .. "#!#" .. f.player)
                 requests[f.link] = nil 
                 DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Declined:|r " .. f.link .. " for " .. f.player)
@@ -84,8 +82,13 @@ function UpdateUI()
     end
 
     local isLead = IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0)
-    pushBtn:Show()
-    if isLead then pushBtn:Enable() else pushBtn:Disable() end
+    
+    -- Update Button States
+    if isLead then
+        pushBtn:Enable(); announceBtn:Enable()
+    else
+        pushBtn:Disable(); announceBtn:Disable()
+    end
 
     if isLead then
         for itemLink, player in pairs(requests) do
@@ -103,13 +106,31 @@ function UpdateUI()
     end
 end
 
--- 3. THE SYNC ENGINE
+-- 3. THE SYNC & ANNOUNCE ENGINE
 function SendComm(msg)
     local chan = "RAID"
     if GetNumRaidMembers() == 0 then
         if GetNumPartyMembers() > 0 then chan = "PARTY" else return end
     end
     SendAddonMessage(prefix, msg, chan)
+end
+
+function AnnounceToRaid()
+    local chan = "RAID"
+    if GetNumRaidMembers() == 0 then
+        if GetNumPartyMembers() > 0 then chan = "PARTY" else 
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Error:|r You must be in a group to announce.")
+            return 
+        end
+    end
+
+    SendChatMessage("--- Raid Reserve List ---", chan)
+    local any = false
+    for link, player in pairs(RaidReserve_Data.reserves) do
+        SendChatMessage("RR: " .. link .. " -> " .. player, chan)
+        any = true
+    end
+    if not any then SendChatMessage("No active reserves.", chan) end
 end
 
 local syncTimer = 0
@@ -143,11 +164,16 @@ function PushListToRaid()
     table.insert(syncQueue, "END")
 end
 
--- 4. PUSH BUTTON
+-- 4. BUTTONS
 pushBtn = CreateFrame("Button", "RR_PushBtn", frame, "UIPanelButtonTemplate")
-pushBtn:SetWidth(120); pushBtn:SetHeight(25); pushBtn:SetPoint("BOTTOM", 0, 15)
+pushBtn:SetWidth(110); pushBtn:SetHeight(25); pushBtn:SetPoint("BOTTOMLEFT", 45, 15)
 pushBtn:SetText("Push to Raid")
 pushBtn:SetScript("OnClick", function() PushListToRaid() end)
+
+announceBtn = CreateFrame("Button", "RR_AnnounceBtn", frame, "UIPanelButtonTemplate")
+announceBtn:SetWidth(110); announceBtn:SetHeight(25); announceBtn:SetPoint("BOTTOMRIGHT", -45, 15)
+announceBtn:SetText("Announce")
+announceBtn:SetScript("OnClick", function() AnnounceToRaid() end)
 
 -- 5. EVENT HANDLER
 frame:RegisterEvent("CHAT_MSG_ADDON")
@@ -161,8 +187,7 @@ frame:SetScript("OnEvent", function()
     elseif event == "RAID_ROSTER_UPDATE" then
         UpdateUI()
     elseif event == "CHAT_MSG_ADDON" and arg1 == prefix then
-        local msg = arg2
-        local sender = arg4
+        local msg = arg2; local sender = arg4
         if sender == UnitName("player") then return end
 
         if msg == "START" then
@@ -188,7 +213,6 @@ frame:SetScript("OnEvent", function()
             requests[realLink] = sender
             UpdateUI()
             DEFAULT_CHAT_FRAME:AddMessage("|cffffff00RR Req:|r " .. realLink .. " from " .. sender)
-        
         elseif string.sub(msg, 1, 6) == "NOTIF:" then
             local payload = string.sub(msg, 7)
             local s1 = string.find(payload, "#!#")
@@ -199,7 +223,6 @@ frame:SetScript("OnEvent", function()
                 if s2 then
                     local encodedLink = string.sub(rest, 1, s2 - 1)
                     local targetPlayer = string.sub(rest, s2 + 3)
-                    
                     if targetPlayer == UnitName("player") then
                         local realLink = string.gsub(encodedLink, "*", "|")
                         if cmd == "ACC" then
@@ -228,8 +251,8 @@ SlashCmdList["RAIDRESERVE"] = function(msg)
         return
     end
     if msg == "push" then PushListToRaid(); return end
+    if msg == "announce" then AnnounceToRaid(); return end
 
-    -- FIX: Changed string.match to string.find for Vanilla compatibility
     local _, _, itemLink = string.find(msg, "(|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r)")
     
     if itemLink then
