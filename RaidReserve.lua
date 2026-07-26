@@ -39,6 +39,8 @@ frame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interfac
 frame:SetBackdropColor(0.05, 0.05, 0.05, 0.95); frame:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 frame:EnableMouse(true); frame:SetMovable(true); frame:SetResizable(true); frame:SetMinResize(340, 500)
 frame:RegisterForDrag("LeftButton"); frame:Hide()
+frame:SetScript("OnDragStart", function() frame:StartMoving() end)
+frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
 
 local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); title:SetPoint("TOP", 0, -12); title:SetText("RAID RESERVE"); title:SetTextColor(1, 0.82, 0)
 
@@ -71,7 +73,7 @@ sFrame:SetBackdropColor(0.05, 0.05, 0.05, 0.95); sFrame:SetBackdropBorderColor(0
 local sTitle = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"); sTitle:SetPoint("TOP", 0, -15); sTitle:SetText("LOOT JOURNAL"); sTitle:SetTextColor(1, 0.82, 0)
 local sTotalLabel = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); sTotalLabel:SetPoint("TOPLEFT", 20, -50); sTotalLabel:SetText("Total Reserved:"); sTotalLabel:SetTextColor(0, 0.8, 1)
 local sTotalVal = sFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge"); sTotalVal:SetPoint("LEFT", sTotalLabel, "RIGHT", 10, 0); sTotalVal:SetText("0")
-local sWonLabel = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); sWonLabel:SetPoint("TOPLEFT", 20, -80); sWonLabel:SetText("Items Won:"); sWonLabel:SetTextColor(0, 0.8, 1)
+local sWonLabel = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); sWonLabel:SetPoint("TOPLEFT", 20, -80); sWonLabel:SetText("Items Dropped:"); sWonLabel:SetTextColor(0, 0.8, 1)
 local sWonVal = sFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge"); sWonVal:SetPoint("LEFT", sWonLabel, "RIGHT", 10, 0); sWonVal:SetText("0")
 local sBarLabel = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); sBarLabel:SetPoint("TOP", 0, -125); sBarLabel:SetText("Loot Luck Gauge"); sBarLabel:SetTextColor(0.7, 0.7, 0.7)
 
@@ -87,8 +89,8 @@ choiceFrame:SetWidth(280); choiceFrame:SetHeight(140); choiceFrame:SetPoint("CEN
 choiceFrame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 }})
 choiceFrame:SetBackdropColor(0.1, 0.1, 0.1, 1); choiceFrame:SetFrameStrata("DIALOG"); choiceFrame:Hide()
 local choiceTitle = choiceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"); choiceTitle:SetPoint("TOP", 0, -20); choiceTitle:SetWidth(240)
-local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("Won")
-local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("Lost")
+local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("DROP! ^_^")
+local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("Not Dropped *_*")
 local btnRem = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnRem:SetWidth(80); btnRem:SetHeight(24); btnRem:SetPoint("BOTTOMRIGHT", -15, 20); btnRem:SetText("Remove")
 
 local line = frame:CreateTexture(nil, "ARTWORK"); line:SetHeight(1); line:SetPoint("BOTTOMLEFT", 20, 185); line:SetPoint("BOTTOMRIGHT", -20, 185); line:SetTexture(0.3, 0.3, 0.3, 0.8)
@@ -193,7 +195,23 @@ pushBtn:SetScript("OnClick", function() if not (IsRaidLeader() or IsRaidOfficer(
 announceBtn:SetScript("OnClick", function() AnnounceCustom() end)
 hideCB:SetScript("OnClick", function() RaidReserve_Data.hideBtn = (this:GetChecked() == 1); if RaidReserve_Data.hideBtn then RR_MinimapButton:Hide() else RR_MinimapButton:Show() end end)
 statsCB:SetScript("OnClick", function() RaidReserve_Data.showStats = (this:GetChecked() == 1); if RaidReserve_Data.showStats then sFrame:Show() else sFrame:Hide() end end)
-local resHandle = CreateFrame("Button", "RR_ResizeHandle", frame); resHandle:SetWidth(16); resHandle:SetHeight(16); resHandle:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2); resHandle:SetFrameLevel(frame:GetFrameLevel() + 50); local gTex = resHandle:CreateTexture(nil, "OVERLAY"); gTex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); gTex:SetAllPoints(resHandle); resHandle:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end); resHandle:SetScript("OnMouseUp", function() frame:StopMovingOrSizing(); RaidReserve_Data.width = frame:GetWidth(); RaidReserve_Data.height = frame:GetHeight() end)
+local resHandle = CreateFrame("Button", "RR_ResizeHandle", frame)
+resHandle:SetWidth(18)
+resHandle:SetHeight(18)
+resHandle:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+resHandle:SetFrameLevel(frame:GetFrameLevel() + 10)
+local gTex = resHandle:CreateTexture(nil, "OVERLAY")
+gTex:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Corner")
+gTex:SetAllPoints(resHandle)
+gTex:SetVertexColor(0.8, 0.8, 0.8, 1)
+resHandle:SetScript("OnEnter", function() gTex:SetVertexColor(1, 0.82, 0, 1) end)
+resHandle:SetScript("OnLeave", function() gTex:SetVertexColor(0.8, 0.8, 0.8, 1) end)
+resHandle:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+resHandle:SetScript("OnMouseUp", function() 
+    frame:StopMovingOrSizing()
+    RaidReserve_Data.width = frame:GetWidth()
+    RaidReserve_Data.height = frame:GetHeight()
+end)
 
 -- 6. DROPDOWNS & EVENTS
 local function Chan_OnClick() UIDropDownMenu_SetSelectedID(RR_ChannelDropdown, this:GetID()); RaidReserve_Data.selectedChannel = this.value end
@@ -242,6 +260,7 @@ end)
 frame:SetScript("OnShow", function() addonUsers = {}; addonUsers[UnitName("player")] = true; SendComm("PING"); UpdateUI() end)
 SLASH_RAIDRESERVE1 = "/rr"; SlashCmdList["RAIDRESERVE"] = function(msg)
     if not msg or msg == "" then if frame:IsShown() then frame:Hide() else frame:Show() end return end
+    if msg == "reset" then RaidReserve_Data.width = 360; RaidReserve_Data.height = 520; frame:SetWidth(360); frame:SetHeight(520); return end
     if msg == "clear" then RaidReserve_Data.reserves = {}; requests = {}; UpdateUI(); return end
     if msg == "clearstats" then RaidReserve_Data.stats = {won=0, total=0}; UpdateUI(); return end
     local _, _, link = string.find(msg, "(|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r)")
