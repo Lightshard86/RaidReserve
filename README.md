@@ -1,4 +1,4 @@
-# :trophy: **RaidReserve v1.3.1**
+# :trophy: **RaidReserve v1.3.2**
 
 ### :shield: **For Normal Raiders**
 *   **Request an Item**: Type `/rr [Shift-Click Item]` to send a request to the Lead.
@@ -24,11 +24,13 @@
 
 ### :keyboard: **Slash Commands**
 ```gherkin
-/rr           - Toggle Main Window
-/rr [Item]    - Request (Raider) or Add Target (Leader)
-/rr clear     - Wipe the current list (Leader Only)
+/rr            - Toggle Main Window
+/rr [Item]     - Request (Raider) or Add Target (Leader)
+/rr clear      - Wipe the current list (Leader Only)
 /rr clearstats - Reset your personal Loot Journal
+/rr reset      - Resets Window to default in case something broke
 ```
 
 Changelog:
+1.3.2 - Fixed Missing Resize Button, Added: /rr reset, Fixed some more bugs
 1.3.1 - Fixed some Bugs
