@@ -1,23 +1,29 @@
 -- 0. INITIALIZE STORAGE
-RaidReserve_Data = RaidReserve_Data or { 
-    reserves = {}, legUpgrades = {}, stats = {won = 0, total = 0}, 
-    pos = {"CENTER", 0, 0}, selectedChannel = "RAID",
-    width = 360, height = 520, hideBtn = false, showStats = true
-}
+RaidReserve_Data = RaidReserve_Data or {}
+if not RaidReserve_Data.reserves then RaidReserve_Data.reserves = {} end
+if not RaidReserve_Data.legUpgrades then RaidReserve_Data.legUpgrades = {} end
+if not RaidReserve_Data.stats then RaidReserve_Data.stats = {won = 0, total = 0} end
+if not RaidReserve_Data.pos then RaidReserve_Data.pos = {"CENTER", 0, 0} end
+if RaidReserve_Data.width == nil then RaidReserve_Data.width = 360 end
+if RaidReserve_Data.height == nil then RaidReserve_Data.height = 520 end
+if RaidReserve_Data.hideBtn == nil then RaidReserve_Data.hideBtn = false end
+if RaidReserve_Data.showStats == nil then RaidReserve_Data.showStats = true end
+if RaidReserve_Data.selectedChannel == nil then RaidReserve_Data.selectedChannel = "RAID" end
 
 local prefix = "RAIDRES"
-local requests, rows, syncQueue, tempReserves, addonUsers = {}, {}, {}, {}, {}, {}
+local requests, rows, syncQueue, tempReserves = {}, {}, {}, {}
+local addonUsers = {} -- Table for tooltip names
 local upgradeList = {"Thunderfury", "Sulfuras", "Priest Staff", "Ashbringer", "Splinter", "Hunter Bow", "Dagger", "Shamy Mace", "Shamy Totem", "Druid Staff"}
 local activePopupData = nil
 
 -- 1. HELPER FUNCTIONS
-function SetSafeTooltip(frame, link)
+function SetSafeTooltip(anchorFrame, link)
     if not link then return end
-    local _, _, rawLink = string.find(link, "|H(item:[%-?%d:]+)|h")
-    if rawLink then
-        GameTooltip:SetOwner(frame, "ANCHOR_RIGHT")
+    local _, _, rawLink = string.find(link, "(item:[%-?%d:]+)")
+    if rawLink then 
+        GameTooltip:SetOwner(anchorFrame, "ANCHOR_RIGHT")
         GameTooltip:SetHyperlink(rawLink)
-        GameTooltip:Show()
+        GameTooltip:Show() 
     end
 end
 
@@ -26,34 +32,37 @@ function SendComm(msg)
     if chan then SendAddonMessage(prefix, msg, chan) end
 end
 
--- 2. POPUP DIALOGS (Registered early for stability)
-StaticPopupDialogs["RR_CONFIRM_RESET"] = {
-    text = "Are you Sure?",
-    button1 = "Clean Stats",
-    button2 = "don't clean",
-    OnAccept = function() 
-        RaidReserve_Data.stats = {won = 0, total = 0}
-        UpdateUI()
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffRR:|r Statistics have been cleared.")
-    end,
-    timeout = 0, whileDead = 1, hideOnEscape = 1,
-}
-
--- 3. MAIN UI CONSTRUCTION
+-- 2. UI OBJECT CREATION
 local frame = CreateFrame("Frame", "RaidReserveFrame", UIParent)
-frame:SetWidth(RaidReserve_Data.width or 360); frame:SetHeight(RaidReserve_Data.height or 520); frame:SetPoint("CENTER", 0, 0)
+frame:SetWidth(RaidReserve_Data.width); frame:SetHeight(RaidReserve_Data.height); frame:SetPoint("CENTER", 0, 0)
 frame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 }})
 frame:SetBackdropColor(0.05, 0.05, 0.05, 0.95); frame:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 frame:EnableMouse(true); frame:SetMovable(true); frame:SetResizable(true); frame:SetMinResize(340, 500)
-frame:RegisterForDrag("LeftButton"); frame:SetScript("OnDragStart", function() frame:StartMoving() end); frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
-frame:Hide()
+frame:RegisterForDrag("LeftButton"); frame:Hide()
 
 local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); title:SetPoint("TOP", 0, -12); title:SetText("RAID RESERVE"); title:SetTextColor(1, 0.82, 0)
 
+-- 2a. USER TRACKER (TOP RIGHT)
 local userCount = CreateFrame("Button", "RR_UserTracker", frame)
 userCount:SetWidth(80); userCount:SetHeight(20); userCount:SetPoint("TOPRIGHT", -12, -12)
+userCount:EnableMouse(true)
 userCount.text = userCount:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); userCount.text:SetAllPoints(); userCount.text:SetJustifyH("RIGHT"); userCount.text:SetTextColor(0.5, 0.5, 0.5)
 
+userCount:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_BOTTOMLEFT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine("Addon Users In Group:", 1, 1, 1)
+    local any = false
+    for name in pairs(addonUsers) do
+        GameTooltip:AddLine("- " .. name, 0, 1, 0)
+        any = true
+    end
+    if not any then GameTooltip:AddLine("Only you.", 0.5, 0.5, 0.5) end
+    GameTooltip:Show()
+end)
+userCount:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+-- 2b. LOOT JOURNAL (STATS)
 local sFrame = CreateFrame("Frame", "RR_StatsFrame", frame)
 sFrame:SetWidth(200); sFrame:SetPoint("TOPLEFT", frame, "TOPRIGHT", 2, 0); sFrame:SetPoint("BOTTOMLEFT", frame, "BOTTOMRIGHT", 2, 0)
 sFrame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 }})
@@ -70,31 +79,17 @@ local sBar = CreateFrame("StatusBar", nil, sFrame); sBar:SetWidth(160); sBar:Set
 local sBarBG = sBar:CreateTexture(nil, "BACKGROUND"); sBarBG:SetAllPoints(); sBarBG:SetTexture(0.1, 0.1, 0.1, 1)
 local sPercentText = sBar:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); sPercentText:SetPoint("CENTER", 0, 0); sPercentText:SetText("0%")
 local sBanterText = sFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"); sBanterText:SetPoint("TOP", sBar, "BOTTOM", 0, -10); sBanterText:SetWidth(180); sBanterText:SetText("")
+local sResetBtn = CreateFrame("Button", nil, sFrame, "UIPanelButtonTemplate"); sResetBtn:SetWidth(80); sResetBtn:SetHeight(20); sResetBtn:SetPoint("BOTTOM", 0, 15); sResetBtn:SetText("Reset")
 
-local sResetBtn = CreateFrame("Button", nil, sFrame, "UIPanelButtonTemplate")
-sResetBtn:SetWidth(80); sResetBtn:SetHeight(20); sResetBtn:SetPoint("BOTTOM", 0, 15); sResetBtn:SetText("Reset")
-sResetBtn:SetScript("OnClick", function() StaticPopup_Show("RR_CONFIRM_RESET") end)
-
+-- 2c. CHOICE WINDOW (POPUP)
 local choiceFrame = CreateFrame("Frame", "RR_ChoiceFrame", UIParent)
 choiceFrame:SetWidth(280); choiceFrame:SetHeight(140); choiceFrame:SetPoint("CENTER", 0, 100)
 choiceFrame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 }})
 choiceFrame:SetBackdropColor(0.1, 0.1, 0.1, 1); choiceFrame:SetFrameStrata("DIALOG"); choiceFrame:Hide()
 local choiceTitle = choiceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"); choiceTitle:SetPoint("TOP", 0, -20); choiceTitle:SetWidth(240)
-
-local function Choice_Resolve(action)
-    if activePopupData then
-        local l, p = activePopupData.l, activePopupData.p
-        syncQueue = {}
-        if action == "WON" then if p == UnitName("player") then RecordStat(true) end; table.insert(syncQueue, "NOTIF:STAT#!#" .. string.gsub(l,"|","*") .. "#!#WON#!#" .. p)
-        elseif action == "LOST" then if p == UnitName("player") then RecordStat(false) end; table.insert(syncQueue, "NOTIF:STAT#!#" .. string.gsub(l,"|","*") .. "#!#LOST#!#" .. p) end
-        RaidReserve_Data.reserves[l] = nil; activePopupData = nil; choiceFrame:Hide(); UpdateUI()
-        table.insert(syncQueue, "START"); for link, player in pairs(RaidReserve_Data.reserves) do table.insert(syncQueue, "ADD:" .. string.gsub(link, "|", "*") .. ":" .. player) end; table.insert(syncQueue, "END")
-    end
-end
-
-local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("Won"); btnWon:SetScript("OnClick", function() Choice_Resolve("WON") end)
-local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("Lost"); btnLost:SetScript("OnClick", function() Choice_Resolve("LOST") end)
-local btnRem = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnRem:SetWidth(80); btnRem:SetHeight(24); btnRem:SetPoint("BOTTOMRIGHT", -15, 20); btnRem:SetText("Remove"); btnRem:SetScript("OnClick", function() Choice_Resolve("REMOVE") end)
+local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("Won")
+local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("Lost")
+local btnRem = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnRem:SetWidth(80); btnRem:SetHeight(24); btnRem:SetPoint("BOTTOMRIGHT", -15, 20); btnRem:SetText("Remove")
 
 local line = frame:CreateTexture(nil, "ARTWORK"); line:SetHeight(1); line:SetPoint("BOTTOMLEFT", 20, 185); line:SetPoint("BOTTOMRIGHT", -20, 185); line:SetTexture(0.3, 0.3, 0.3, 0.8)
 local goblinText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); goblinText:SetPoint("BOTTOM", line, "TOP", 0, 4); goblinText:SetText("")
@@ -109,7 +104,7 @@ local statsCB = CreateFrame("CheckButton", "RR_StatsCheck", frame, "UICheckButto
 local pushBtn = CreateFrame("Button", "RR_PushBtn", frame, "UIPanelButtonTemplate"); pushBtn:SetWidth(130); pushBtn:SetHeight(26); pushBtn:SetPoint("BOTTOMLEFT", 35, 18); pushBtn:SetText("Push to Raid")
 local announceBtn = CreateFrame("Button", "RR_AnnounceBtn", frame, "UIPanelButtonTemplate"); announceBtn:SetWidth(130); announceBtn:SetHeight(26); announceBtn:SetPoint("BOTTOMRIGHT", -35, 18); announceBtn:SetText("Announce")
 
--- 4. UPDATE UI LOGIC
+-- 3. CORE LOGIC
 function RecordStat(won)
     RaidReserve_Data.stats.total = RaidReserve_Data.stats.total + 1
     if won then RaidReserve_Data.stats.won = RaidReserve_Data.stats.won + 1 end
@@ -118,42 +113,52 @@ end
 
 function UpdateUI()
     for i=1, 30 do if rows[i] then rows[i]:Hide() end end
-    local count, myReserveCount = 0, 0
-    local myName = UnitName("player")
-    for itemLink, player in pairs(RaidReserve_Data.reserves) do
+    local count, myResCount = 0, 0
+    local myName = UnitName("player") or "Unknown"
+    addonUsers[myName] = true
+
+    for link, player in pairs(RaidReserve_Data.reserves) do
         count = count + 1
-        if player == myName then myReserveCount = myReserveCount + 1 end
-        if rows[count] then local row = rows[count]; row.link = itemLink; row.player = player; row.isRequest = false; row.text:SetText(itemLink .. "  |cff888888→|r  |cff00ff00" .. player .. "|r"); rows[count]:Show() end
+        if player == myName then myResCount = myResCount + 1 end
+        if rows[count] then local row = rows[count]; row.link = link; row.player = player; row.isRequest = false; row.text:SetText(link .. "  |cff888888→|r  |cff00ff00" .. player .. "|r"); rows[count]:Show() end
     end
-    goblinText:SetText((myReserveCount == 0 and "|cff888888No treasures claimed yet...|r") or (myReserveCount == 1 and "|cff00ff00A humble request. Good luck!|r") or (myReserveCount == 2 and "|cff00ccffDouble the chances!|r") or (myReserveCount == 3 and "|cffffff00Aiming high!|r") or (myReserveCount == 4 and "|cffff9900Bags looking empty?|r") or "|cffff0000YOU GREEDY LOOT GOBLIN!|r")
+    goblinText:SetText((myResCount == 0 and "|cff888888No treasures claimed yet...|r") or (myResCount == 1 and "|cff00ff00A humble request. Good luck!|r") or (myResCount == 2 and "|cff00ccffDouble the chances!|r") or (myResCount == 3 and "|cffffff00Aiming high!|r") or (myResCount == 4 and "|cffff9900Bags looking empty?|r") or "|cffff0000YOU GREEDY LOOT GOBLIN!|r")
+    
     local isL = IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0)
     hideCB:SetChecked(RaidReserve_Data.hideBtn); statsCB:SetChecked(RaidReserve_Data.showStats)
     if RaidReserve_Data.showStats then sFrame:Show() else sFrame:Hide() end
     if isL then pushBtn:Enable(); announceBtn:Enable(); recruitEB:Show(); recruitLabel:Show(); dropdown:Show(); chanLabel:Show(); legDropdown:Show(); legLabel:Show()
     else pushBtn:Disable(); announceBtn:Disable(); recruitEB:Hide(); recruitLabel:Hide(); dropdown:Hide(); chanLabel:Hide(); legDropdown:Hide(); legLabel:Hide() end
+    
     local totalU = 0; for _ in pairs(addonUsers) do totalU = totalU + 1 end
     userCount.text:SetText("Users: " .. totalU)
     UIDropDownMenu_SetSelectedValue(dropdown, RaidReserve_Data.selectedChannel or "RAID")
+    
     if isL then
-        for itemLink, player in pairs(requests) do
-            count = count + 1; if rows[count] then local row = rows[count]; row.link = itemLink; row.player = player; row.isRequest = true; row.text:SetText("|cffffff00[REQ]|r " .. itemLink .. "  |cff888888→|r  " .. player); rows[count]:Show() end
+        for link, player in pairs(requests) do
+            count = count + 1; if rows[count] then local row = rows[count]; row.link = link; row.player = player; row.isRequest = true; row.text:SetText("|cffffff00[REQ]|r " .. link .. "  |cff888888→|r  " .. player); rows[count]:Show() end
         end
     end
     if count == 0 and rows[1] then rows[1].text:SetText("|cff666666No reserves active.|r"); rows[1].link = nil; rows[1]:Show() end
-    local s = RaidReserve_Data.stats; sTotalVal:SetText(s.total); sWonVal:SetText(s.won)
-    local rate = (s.total > 0) and math.floor((s.won / s.total) * 100) or 0
-    sBar:SetValue(rate); sPercentText:SetText(rate .. "%")
-    if rate == 0 then sBanterText:SetText("Absolute Zero. Total loot desert."); sBanterText:SetTextColor(0.5, 0.5, 0.5)
-    elseif rate < 20 then sBanterText:SetText("Cursed? RNG is your mortal enemy."); sBanterText:SetTextColor(1, 0, 0)
-    elseif rate < 40 then sBanterText:SetText("Meh. Just enough to stay quiet."); sBanterText:SetTextColor(1, 0.5, 0)
-    elseif rate < 60 then sBanterText:SetText("Solid. You're actually winning!"); sBanterText:SetTextColor(1, 1, 0)
-    elseif rate < 80 then sBanterText:SetText("Loot Magnet! Calm down a bit."); sBanterText:SetTextColor(0, 1, 0)
-    elseif rate < 100 then sBanterText:SetText("RNG GOD. Is your dad a GM?"); sBanterText:SetTextColor(0, 1, 1)
-    else sBanterText:SetText("ILLEGAL. Stop stealing everything!"); sBanterText:SetTextColor(1, 0, 1) end
+
+    local s = RaidReserve_Data.stats; sTotalVal:SetText(s.total); sWonVal:SetText(s.won); local rate = (s.total > 0) and math.floor((s.won / s.total) * 100) or 0; sBar:SetValue(rate); sPercentText:SetText(rate .. "%")
+    if rate == 0 then sBanterText:SetText("Absolute Zero. Total loot desert."); sBanterText:SetTextColor(0.5, 0.5, 0.5) elseif rate < 20 then sBanterText:SetText("Cursed? RNG is your mortal enemy."); sBanterText:SetTextColor(1, 0, 0) elseif rate < 40 then sBanterText:SetText("Meh. Just enough to stay quiet."); sBanterText:SetTextColor(1, 0.5, 0) elseif rate < 60 then sBanterText:SetText("Solid. You're actually winning!"); sBanterText:SetTextColor(1, 1, 0) elseif rate < 80 then sBanterText:SetText("Loot Magnet! Calm down a bit."); sBanterText:SetTextColor(0, 1, 0) elseif rate < 100 then sBanterText:SetText("RNG GOD. Is your dad a GM?"); sBanterText:SetTextColor(0, 1, 1) else sBanterText:SetText("ILLEGAL. Stop stealing everything!"); sBanterText:SetTextColor(1, 0, 1) end
     if rate < 25 then sBar:SetStatusBarColor(1, 0, 0) elseif rate < 50 then sBar:SetStatusBarColor(1, 1, 0) else sBar:SetStatusBarColor(0, 1, 0) end
 end
 
--- 5. INTERACTION LOGIC
+-- 4. INTERACTION HELPERS
+StaticPopupDialogs["RR_CONFIRM_RESET"] = { text = "Are you Sure?", button1 = "Clean Stats", button2 = "don't clean", OnAccept = function() RaidReserve_Data.stats = {won = 0, total = 0}; UpdateUI() end, timeout = 0, whileDead = 1, hideOnEscape = 1 }
+
+local function Choice_Resolve(action)
+    if activePopupData then
+        local l, p = activePopupData.l, activePopupData.p; syncQueue = {}
+        if action == "WON" then if p == UnitName("player") then RecordStat(true) end; table.insert(syncQueue, "NOTIF:STAT#!#" .. string.gsub(l,"|","*") .. "#!#WON#!#" .. p)
+        elseif action == "LOST" then if p == UnitName("player") then RecordStat(false) end; table.insert(syncQueue, "NOTIF:STAT#!#" .. string.gsub(l,"|","*") .. "#!#LOST#!#" .. p) end
+        RaidReserve_Data.reserves[l] = nil; activePopupData = nil; choiceFrame:Hide(); UpdateUI()
+        table.insert(syncQueue, "START"); for link, player in pairs(RaidReserve_Data.reserves) do table.insert(syncQueue, "ADD:" .. string.gsub(link, "|", "*") .. ":" .. player) end; table.insert(syncQueue, "END")
+    end
+end
+
 function AnnounceCustom()
     local val = RaidReserve_Data.selectedChannel or "RAID"; local chan = (tonumber(val) and "CHANNEL") or val; local num = tonumber(val); local intro = recruitEB:GetText()
     if intro and intro ~= "" then SendChatMessage(intro, chan, nil, num) end
@@ -163,8 +168,6 @@ function AnnounceCustom()
     local cur = ""; for link in pairs(RaidReserve_Data.reserves) do if string.len(cur .. "  " .. link) > 200 then SendChatMessage(cur, chan, nil, num); cur = link else cur = (cur == "" and link) or (cur .. "  " .. link) end end
     if cur ~= "" then SendChatMessage(cur, chan, nil, num) end
 end
-
-function PushListToRaid() if not (IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0)) then return end; DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00RR:|r Syncing list..."); syncQueue = {}; table.insert(syncQueue, "START"); for link, player in pairs(RaidReserve_Data.reserves) do table.insert(syncQueue, "ADD:" .. string.gsub(link, "|", "*") .. ":" .. player) end; table.insert(syncQueue, "END") end
 
 for i=1, 30 do
     local f = CreateFrame("Button", "RR_Row"..i, frame); f:SetHeight(18); f:SetPoint("TOPLEFT", 15, -35 - (i * 20)); f:SetPoint("RIGHT", -15, 0); f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -183,13 +186,16 @@ for i=1, 30 do
     end); f:Hide(); rows[i] = f
 end
 
-pushBtn:SetScript("OnClick", function() PushListToRaid() end); announceBtn:SetScript("OnClick", function() AnnounceCustom() end)
+-- 5. ATTACH SCRIPTS
+btnWon:SetScript("OnClick", function() Choice_Resolve("WON") end); btnLost:SetScript("OnClick", function() Choice_Resolve("LOST") end); btnRem:SetScript("OnClick", function() Choice_Resolve("REMOVE") end)
+sResetBtn:SetScript("OnClick", function() StaticPopup_Show("RR_CONFIRM_RESET") end)
+pushBtn:SetScript("OnClick", function() if not (IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0)) then return end; DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00RR:|r Syncing list..."); syncQueue = {}; table.insert(syncQueue, "START"); for link, player in pairs(RaidReserve_Data.reserves) do table.insert(syncQueue, "ADD:" .. string.gsub(link, "|", "*") .. ":" .. player) end; table.insert(syncQueue, "END") end)
+announceBtn:SetScript("OnClick", function() AnnounceCustom() end)
 hideCB:SetScript("OnClick", function() RaidReserve_Data.hideBtn = (this:GetChecked() == 1); if RaidReserve_Data.hideBtn then RR_MinimapButton:Hide() else RR_MinimapButton:Show() end end)
 statsCB:SetScript("OnClick", function() RaidReserve_Data.showStats = (this:GetChecked() == 1); if RaidReserve_Data.showStats then sFrame:Show() else sFrame:Hide() end end)
+local resHandle = CreateFrame("Button", "RR_ResizeHandle", frame); resHandle:SetWidth(16); resHandle:SetHeight(16); resHandle:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2); resHandle:SetFrameLevel(frame:GetFrameLevel() + 50); local gTex = resHandle:CreateTexture(nil, "OVERLAY"); gTex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); gTex:SetAllPoints(resHandle); resHandle:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end); resHandle:SetScript("OnMouseUp", function() frame:StopMovingOrSizing(); RaidReserve_Data.width = frame:GetWidth(); RaidReserve_Data.height = frame:GetHeight() end)
 
-local resizeGrip = CreateFrame("Button", "RR_ResizeHandle", frame); resizeGrip:SetWidth(16); resizeGrip:SetHeight(16); resizeGrip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2); resizeGrip:SetFrameLevel(frame:GetFrameLevel() + 50); local gripTex = resizeGrip:CreateTexture(nil, "OVERLAY"); gripTex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); gripTex:SetAllPoints(resizeGrip); resizeGrip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end); resizeGrip:SetScript("OnMouseUp", function() frame:StopMovingOrSizing(); RaidReserve_Data.width = frame:GetWidth(); RaidReserve_Data.height = frame:GetHeight() end)
-
--- 6. DROPDOWNS
+-- 6. DROPDOWNS & EVENTS
 local function Chan_OnClick() UIDropDownMenu_SetSelectedID(RR_ChannelDropdown, this:GetID()); RaidReserve_Data.selectedChannel = this.value end
 local function Leg_OnClick() RaidReserve_Data.legUpgrades[this.value] = not RaidReserve_Data.legUpgrades[this.value] end
 local function Chan_Init() local info = {}; local channels = { { text = "Say", value = "SAY" }, { text = "Party", value = "PARTY" }, { text = "Raid", value = "RAID" }, { text = "Guild", value = "GUILD" }, { text = "/1", value = "1" }, { text = "/2", value = "2" }, { text = "/3", value = "3" }, { text = "/4", value = "4" } }; for i, entry in pairs(channels) do info.text = entry.text; info.value = entry.value; info.func = Chan_OnClick; info.checked = (RaidReserve_Data.selectedChannel == entry.value); UIDropDownMenu_AddButton(info) end end
@@ -197,7 +203,6 @@ local function Leg_Init() local info = {}; for _, name in pairs(upgradeList) do 
 UIDropDownMenu_Initialize(dropdown, Chan_Init); UIDropDownMenu_SetWidth(125, dropdown)
 UIDropDownMenu_Initialize(legDropdown, Leg_Init); UIDropDownMenu_SetWidth(125, legDropdown); UIDropDownMenu_SetText("Select Upgrades", legDropdown)
 
--- 7. EVENT HANDLER
 frame:RegisterEvent("CHAT_MSG_ADDON"); frame:RegisterEvent("VARIABLES_LOADED"); frame:RegisterEvent("RAID_ROSTER_UPDATE")
 frame:SetScript("OnUpdate", function() if table.getn(syncQueue) > 0 then syncTimer = (syncTimer or 0) + (arg1 or 0.1); if syncTimer > 0.4 then local msg = table.remove(syncQueue, 1); if msg then SendComm(msg); if string.sub(msg, 1, 4) == "ADD:" then DEFAULT_CHAT_FRAME:AddMessage("|cffaaaaaaRR: Syncing...|r") elseif msg == "END" then DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00RR: Sync Complete!|r") end end; syncTimer = 0 end end end)
 frame:SetScript("OnEvent", function()
@@ -216,11 +221,13 @@ frame:SetScript("OnEvent", function()
         elseif string.sub(msg, 1, 6) == "NOTIF:" then
             local p = string.sub(msg, 7); local s1 = string.find(p, "#!#")
             if s1 then
-                local cmd = string.sub(p, 1, s1-1); local rest = string.sub(p, s1+3); local s2 = string.find(rest, "#!#")
+                local cmd, rest = string.sub(p, 1, s1-1), string.sub(p, s1+3)
+                local s2 = string.find(rest, "#!#")
                 if s2 then
-                    local l = string.gsub(string.sub(rest, 1, s2-1), "*", "|"); local rest2 = string.sub(rest, s2+3); local s3 = string.find(rest2, "#!#")
+                    local l = string.gsub(string.sub(rest, 1, s2-1), "*", "|"); local rest2 = string.sub(rest, s2+3)
+                    local s3 = string.find(rest2, "#!#")
                     if s3 then
-                        local dec = string.sub(rest2, 1, s3-1); local target = string.sub(rest2, s3+3)
+                        local dec, target = string.sub(rest2, 1, s3-1), string.sub(rest2, s3+3)
                         if target == UnitName("player") and cmd == "STAT" then RecordStat(dec == "WON") end
                     else if rest2 == UnitName("player") then
                             if cmd == "ACC" then DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00Your reserve for " .. l .. " was ACCEPTED!|r")
@@ -232,28 +239,16 @@ frame:SetScript("OnEvent", function()
         end
     end
 end)
-
-frame:SetScript("OnShow", function() addonUsers = {}; addonUsers[UnitName("player")] = true; if SendComm then SendComm("PING") end; UpdateUI() end)
-
+frame:SetScript("OnShow", function() addonUsers = {}; addonUsers[UnitName("player")] = true; SendComm("PING"); UpdateUI() end)
 SLASH_RAIDRESERVE1 = "/rr"; SlashCmdList["RAIDRESERVE"] = function(msg)
     if not msg or msg == "" then if frame:IsShown() then frame:Hide() else frame:Show() end return end
     if msg == "clear" then RaidReserve_Data.reserves = {}; requests = {}; UpdateUI(); return end
     if msg == "clearstats" then RaidReserve_Data.stats = {won=0, total=0}; UpdateUI(); return end
-    if msg == "push" then PushListToRaid(); return end
-    if msg == "announce" then AnnounceCustom(); return end
-    local _, _, itemLink = string.find(msg, "(|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r)")
-    if itemLink then
+    local _, _, link = string.find(msg, "(|c%x+|Hitem:[%-?%d:]+|h%[.-%]|h|r)")
+    if link then
         if IsRaidLeader() or IsRaidOfficer() or (GetNumRaidMembers() == 0) then
-            local r = string.gsub(msg, ".*|h|r%s*", ""); RaidReserve_Data.reserves[itemLink] = (r ~= "" and r) or UnitName("target") or UnitName("player"); UpdateUI()
-        else SendComm("REQ:" .. string.gsub(itemLink, "|", "*")); DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00RR:|r Reserve request sent for " .. itemLink) end
+            local r = string.gsub(msg, ".*|h|r%s*", ""); RaidReserve_Data.reserves[link] = (r ~= "" and r) or UnitName("target") or UnitName("player"); UpdateUI()
+        else SendComm("REQ:" .. string.gsub(link, "|", "*")); DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00RR:|r Request sent for " .. link) end
     end
 end
-
-local btn = CreateFrame("Button", "RR_MinimapButton", UIParent)
-btn:SetWidth(34); btn:SetHeight(34); btn:SetPoint("CENTER", 0, 0); btn:SetMovable(true); btn:EnableMouse(true)
-local btnTex = btn:CreateTexture(nil, "BACKGROUND"); btnTex:SetTexture("Interface\\Icons\\INV_Misc_Coin_01"); btnTex:SetWidth(20); btnTex:SetHeight(20); btnTex:SetPoint("CENTER", 0, 0)
-local btnBorder = btn:CreateTexture(nil, "OVERLAY"); btnBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder"); btnBorder:SetWidth(52); btnBorder:SetHeight(52); btnBorder:SetPoint("TOPLEFT", 0, 0)
-btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"); btn:RegisterForClicks("LeftButtonUp")
-btn:SetScript("OnMouseDown", function() if IsShiftKeyDown() then btn:StartMoving() end end)
-btn:SetScript("OnMouseUp", function() btn:StopMovingOrSizing(); local point, _, _, x, y = btn:GetPoint(); RaidReserve_Data.pos = {point, x, y} end)
-btn:SetScript("OnClick", function() if not IsShiftKeyDown() then if frame:IsShown() then frame:Hide() else frame:Show() end end end)
+local mBtn = CreateFrame("Button", "RR_MinimapButton", UIParent); mBtn:SetWidth(34); mBtn:SetHeight(34); mBtn:SetPoint("CENTER", 0, 0); mBtn:SetMovable(true); mBtn:EnableMouse(true); local bt = mBtn:CreateTexture(nil, "BACKGROUND"); bt:SetTexture("Interface\\Icons\\INV_Misc_Coin_01"); bt:SetWidth(20); bt:SetHeight(20); bt:SetPoint("CENTER", 0, 0); local bb = mBtn:CreateTexture(nil, "OVERLAY"); bb:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder"); bb:SetWidth(52); bb:SetHeight(52); bb:SetPoint("TOPLEFT", 0, 0); mBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"); mBtn:RegisterForClicks("LeftButtonUp"); mBtn:SetScript("OnMouseDown", function() if IsShiftKeyDown() then mBtn:StartMoving() end end); mBtn:SetScript("OnMouseUp", function() mBtn:StopMovingOrSizing(); local p, _, _, x, y = mBtn:GetPoint(); RaidReserve_Data.pos = {p, x, y} end); mBtn:SetScript("OnClick", function() if not IsShiftKeyDown() then if frame:IsShown() then frame:Hide() else frame:Show() end end end)
