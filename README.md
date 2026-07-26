@@ -31,6 +31,6 @@
 /rr reset      - Resets Window to default in case something broke
 ```
 
-Changelog:
-1.3.2 - Fixed Missing Resize Button, Added: /rr reset, Fixed some more bugs
-1.3.1 - Fixed some Bugs
+* Changelog:
+* 1.3.2 - Fixed Missing Resize Button, Added: /rr reset, Fixed some more bugs
+* 1.3.1 - Fixed some Bugs
