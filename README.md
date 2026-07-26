@@ -1,4 +1,4 @@
-# :trophy: **RaidReserve v1.3**
+# :trophy: **RaidReserve v1.3.1**
 
 ### :shield: **For Normal Raiders**
 *   **Request an Item**: Type `/rr [Shift-Click Item]` to send a request to the Lead.
@@ -29,3 +29,6 @@
 /rr clear     - Wipe the current list (Leader Only)
 /rr clearstats - Reset your personal Loot Journal
 ```
+
+Changelog:
+1.3.1 - Fixed some Bugs
