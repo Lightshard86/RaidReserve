@@ -89,8 +89,8 @@ choiceFrame:SetWidth(280); choiceFrame:SetHeight(140); choiceFrame:SetPoint("CEN
 choiceFrame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 }})
 choiceFrame:SetBackdropColor(0.1, 0.1, 0.1, 1); choiceFrame:SetFrameStrata("DIALOG"); choiceFrame:Hide()
 local choiceTitle = choiceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal"); choiceTitle:SetPoint("TOP", 0, -20); choiceTitle:SetWidth(240)
-local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("DROP! ^_^")
-local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("Not Dropped *_*")
+local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("DROP!")
+local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("*_*")
 local btnRem = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnRem:SetWidth(80); btnRem:SetHeight(24); btnRem:SetPoint("BOTTOMRIGHT", -15, 20); btnRem:SetText("Remove")
 
 local line = frame:CreateTexture(nil, "ARTWORK"); line:SetHeight(1); line:SetPoint("BOTTOMLEFT", 20, 185); line:SetPoint("BOTTOMRIGHT", -20, 185); line:SetTexture(0.3, 0.3, 0.3, 0.8)
