@@ -1,4 +1,4 @@
-# :trophy: **RaidReserve v1.3.2**
+# :trophy: **RaidReserve v1.3.3**
 
 ### :shield: **For Normal Raiders**
 *   **Request an Item**: Type `/rr [Shift-Click Item]` to send a request to the Lead.
@@ -32,5 +32,6 @@
 ```
 
 * Changelog:
+* 1.3.3 - Added a Close Button to the Itemremove Popup in case you missclicked
 * 1.3.2 - Fixed Missing Resize Button, Added: /rr reset, Fixed some more bugs
 * 1.3.1 - Fixed some Bugs
