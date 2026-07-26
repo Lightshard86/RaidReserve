@@ -92,6 +92,12 @@ local choiceTitle = choiceFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal
 local btnWon = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnWon:SetWidth(80); btnWon:SetHeight(24); btnWon:SetPoint("BOTTOMLEFT", 15, 20); btnWon:SetText("DROP!")
 local btnLost = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnLost:SetWidth(80); btnLost:SetHeight(24); btnLost:SetPoint("BOTTOM", 0, 20); btnLost:SetText("*_*")
 local btnRem = CreateFrame("Button", nil, choiceFrame, "UIPanelButtonTemplate"); btnRem:SetWidth(80); btnRem:SetHeight(24); btnRem:SetPoint("BOTTOMRIGHT", -15, 20); btnRem:SetText("Remove")
+local choiceCloseBtn = CreateFrame("Button", nil, choiceFrame, "UIPanelCloseButton")
+choiceCloseBtn:SetPoint("TOPRIGHT", choiceFrame, "TOPRIGHT", -5, -5)
+choiceCloseBtn:SetScript("OnClick", function()
+    activePopupData = nil
+    choiceFrame:Hide()
+end)
 
 local line = frame:CreateTexture(nil, "ARTWORK"); line:SetHeight(1); line:SetPoint("BOTTOMLEFT", 20, 185); line:SetPoint("BOTTOMRIGHT", -20, 185); line:SetTexture(0.3, 0.3, 0.3, 0.8)
 local goblinText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); goblinText:SetPoint("BOTTOM", line, "TOP", 0, 4); goblinText:SetText("")
